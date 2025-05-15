@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException
-from typing import Optional, List, Dict
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Path, Query, Body
+from typing import Optional, List, Dict, Annotated
+from pydantic import BaseModel, Field
 
 app = FastAPI()
 
@@ -24,8 +24,13 @@ class PostCreate(BaseModel):
     author_id: int
 
 
+class UserCreate(BaseModel):
+    name: Annotated[str, Field(..., title="user name", min_length=2, max_length=20)]
+    age: Annotated[int, Field(..., title="user age", ge=1, le=120)]
+
+
 users = [
-    {"id": 1, "name": "Jogn", "age": 34},
+    {"id": 1, "name": "John", "age": 34},
     {"id": 2, "name": "Alex", "age": 12},
     {"id": 3, "name": "Bob", "age": 45},
 ]
@@ -68,26 +73,29 @@ async def add_item(post: PostCreate) -> Post:
     return Post(**new_post)
 
 
-@app.put("/items/edit/{id}")
-async def add_item(post: PostCreate) -> Post:
-    author = next((user for user in users if user["id"] == post.author_id), None)
-    if not author:
-        raise HTTPException(status_code=404, detail="User not found")
-    new_post_id = len(posts) + 1
+@app.post("/user/add")
+async def user_add(
+    post: Annotated[UserCreate, Body(..., example={"name": "UserName", "age": 1})],
+) -> User:
 
-    new_post = {
-        "id": new_post_id,
-        "title": post.title,
-        "body": post.body,
-        "author": author,
+    new_user_id = len(users) + 1
+
+    new_user = {
+        "id": new_user_id,
+        "name": users.name,
+        "age": users.name,
     }
-    posts.append(new_post)
+    users.append(new_user)
 
-    return Post(**new_post)
+    return User(**new_user)
 
 
 @app.get("/items/{id}")
-async def items(id: int) -> Post:
+async def items(
+    id: Annotated[
+        int, Path(..., title="Here is post id", ge=1, lt=100, max_length=100)
+    ],
+) -> Post:
     for post in posts:
         if post["id"] == id:
             return Post(**post)
@@ -96,7 +104,9 @@ async def items(id: int) -> Post:
 
 
 @app.get("/search")
-async def search(post_id: Optional[int] = None) -> Dict[str, Optional[Post]]:
+async def search(
+    post_id: Annotated[Optional[int], Query(title="ID of post to search", ge=1, le=50)],
+) -> Dict[str, Optional[Post]]:
     if post_id:
         for post in posts:
             if post["id"] == post_id:
